@@ -1213,6 +1213,32 @@ class WebcamPreviewWindow(QWidget):
         self._timer.timeout.connect(self._tick)
         self._timer.start(poll_ms)
 
+        # Virtual camera output (so the swap shows up in Google Meet / Zoom).
+        self._vcam = None
+        self._vcam_failed = False
+
+    def _send_to_virtual_cam(self, bgr_frame) -> None:
+        if self._vcam_failed:
+            return
+        try:
+            h, w = bgr_frame.shape[:2]
+            if self._vcam is None:
+                import pyvirtualcam
+                self._vcam = pyvirtualcam.Camera(
+                    width=w, height=h, fps=30, backend="obs", print_fps=False
+                )
+                print(f"[vcam] streaming swap to '{self._vcam.device}' ({w}x{h})")
+            self._vcam.send(cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB))
+        except Exception as exc:
+            print(f"[vcam] virtual camera disabled: {exc}")
+            self._vcam_failed = True
+            try:
+                if self._vcam is not None:
+                    self._vcam.close()
+            except Exception:
+                pass
+            self._vcam = None
+
     def _tick(self) -> None:
         if self._stop_event.is_set():
             self.close()
@@ -1221,6 +1247,9 @@ class WebcamPreviewWindow(QWidget):
             bgr_frame = self._processed_queue.get_nowait()
         except queue.Empty:
             return
+        # Feed the full-resolution swapped frame to the virtual camera first,
+        # then resize a copy only for the on-screen preview.
+        self._send_to_virtual_cam(bgr_frame)
         bgr_frame = fit_image_to_size(bgr_frame, self.width(), self.height())
         self._image_label.setPixmap(_bgr_to_qpixmap(bgr_frame))
 
@@ -1237,6 +1266,11 @@ class WebcamPreviewWindow(QWidget):
                 pass
         try:
             self._cap.release()
+        except Exception:
+            pass
+        try:
+            if self._vcam is not None:
+                self._vcam.close()
         except Exception:
             pass
         global _WEBCAM_PREVIEW

@@ -177,7 +177,13 @@ def limit_resources() -> None:
             kernel32.SetProcessWorkingSetSize(-1, ctypes.c_size_t(memory), ctypes.c_size_t(memory))
         else:
             import resource
-            resource.setrlimit(resource.RLIMIT_DATA, (memory, memory))
+            soft, hard = resource.getrlimit(resource.RLIMIT_DATA)
+            # never request more than the OS hard limit (macOS rejects it)
+            target = memory if hard == resource.RLIM_INFINITY else min(memory, hard)
+            try:
+                resource.setrlimit(resource.RLIMIT_DATA, (target, hard))
+            except (ValueError, OSError):
+                pass
 
 
 def release_resources() -> None:
