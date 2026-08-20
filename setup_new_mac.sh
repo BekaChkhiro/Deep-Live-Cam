@@ -22,8 +22,12 @@ fi
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "==> Installing Xcode Command Line Tools — click 'Install' in the dialog…"
   xcode-select --install || true
-  echo "    Waiting for Command Line Tools to finish…"
-  until xcode-select -p >/dev/null 2>&1; do sleep 10; done
+  echo "    Waiting for Command Line Tools to finish (this can take 5-10 min)…"
+  while ! xcode-select -p >/dev/null 2>&1; do
+    printf '.'          # heartbeat, so a long install never looks frozen
+    sleep 10
+  done
+  echo " done."
 fi
 
 # 2. Homebrew.
@@ -46,7 +50,7 @@ echo "==> Creating Python 3.11 virtual environment…"
 [ -d venv ] && rm -rf venv
 "$PYTHON" -m venv venv
 ./venv/bin/python -m pip install --upgrade pip wheel setuptools
-echo "==> Installing Python dependencies (several minutes)…"
+echo "==> Installing Python dependencies (5-15 min, quiet stretches are normal)…"
 ./venv/bin/python -m pip install -r requirements.txt
 
 # 5. Face-swap models.
