@@ -64,8 +64,13 @@ echo "    Mac password (that is macOS, not this script)."
 cd "$INSTALL_DIR"
 bash setup_new_mac.sh
 
-# 5. Make it double-clickable from the Desktop.
-ln -sfn "$INSTALL_DIR/Start FaceSwap.command" "$HOME/Desktop/Start FaceSwap.command" 2>/dev/null || true
+# 5. Make it double-clickable from the Desktop (a wrapper, not a symlink, so
+#    the launcher always resolves the real install directory).
+SHORTCUT="$HOME/Desktop/Start FaceSwap.command"
+{
+  printf '#!/usr/bin/env bash\n'
+  printf 'exec %s\n' "$(printf '%q' "$INSTALL_DIR/Start FaceSwap.command")"
+} > "$SHORTCUT" && chmod +x "$SHORTCUT"
 
 printf '\n\033[1;32m✅ Installed at: %s\033[0m\n' "$INSTALL_DIR"
 echo "   A 'Start FaceSwap' shortcut was placed on your Desktop."
